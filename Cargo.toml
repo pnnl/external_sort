@@ -1,6 +1,6 @@
 [package]
 name = "external_sort"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Phillips, Aaron R <aaron.phillips@pnnl.gov>"]
 license = "MIT"
 repository = "https://github.com/pnnl/external_sort"
