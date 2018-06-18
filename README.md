@@ -8,14 +8,14 @@ Usage
 
 Add this to your `Cargo.toml`:
 
-```
+```toml
 [dependencies]
 external_sort = "^0.0.1"
 ```
 
 and this to your crate root:
 
-```
+```rust
 extern crate external_sort;
 ```
 
@@ -26,7 +26,7 @@ The following shows using `external_sort` to sort a vector of simple structs.
 
 Note that your struct must `impl` `Ord`, `Clone`, as well as the `serde` `Serialize` and `Deserialize` traits. Additionally, in order for `external_sort` to track it's memory buffer usage, your struct must be able to report on it's size (via `external_sort::ExternallySortable`)
 
-```
+```rust
 extern crate external_sort;
 #[macro_use]
 extern crate serde_derive;
