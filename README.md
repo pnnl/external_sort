@@ -35,18 +35,18 @@ use external_sort::{ExternallySortable, ExternalSorter};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct Num {
-    the_num: u8
+    the_num: u32
 }
 
 impl Num {
-    fn new(num:u8) -> Num {
+    fn new(num:u32) -> Num {
         Num { the_num: num }
     }
 }
 
 impl ExternallySortable for Num {
     fn get_size(&self) -> u64 {
-        8
+        4
     }
 }
 
@@ -61,3 +61,5 @@ fn main() {
     }
 }
 ```
+
+If your struct is unable to report on it's size, simply return `1` from `get_size()`, and then pass the number of objects (rather than bytes) that the `ExternalSorter` should keep in memory when calling `ExternalSorter::new()`

@@ -19,7 +19,7 @@ pub trait ExternallySortable: Ord + Clone + Serialize + DeserializeOwned {
     /// Get the size, in bytes, of this object (used to constrain the buffer
     /// used in the external sort).
     ///
-    /// If you are unable to calculate a size, simple return `1` from this
+    /// If you are unable to calculate a size, simply return `1` from this
     /// function, and then set the `buffer_bytes` to the number of objects
     /// to hold in memory when creating an
     /// [ExternalSorter](struct.ExternalSorter.html)
