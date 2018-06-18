@@ -1,0 +1,16 @@
+trailing_comma = "never"
+error_on_line_overflow = false
+fn_args_density = "Compressed"
+match_block_trailing_comma = true
+reorder_imported_names = true
+reorder_imports = true
+reorder_imports_in_group = true
+reorder_extern_crates = true
+use_field_init_shorthand = true
+indent_style = "Visual"
+fn_single_line = true
+wrap_comments = true
+write_mode = "Overwrite"
+max_width = 100
+brace_style = "PreferSameLine"
+match_arm_blocks = true
