@@ -1,6 +1,7 @@
 extern crate external_sort;
 #[macro_use]
 extern crate serde_derive;
+extern crate rand;
 
 use external_sort::{ExternalSorter, ExternallySortable};
 
@@ -108,3 +109,44 @@ fn large_buff() {
         assert_eq!(i.the_num, sorted[idx].the_num);
     }
 }
+
+#[test]
+fn reuse() {
+    let unsorted = vec![
+        Num::new(5),
+        Num::new(2),
+        Num::new(1),
+        Num::new(3),
+        Num::new(4),
+    ];
+    let sorted = vec![
+        Num::new(1),
+        Num::new(2),
+        Num::new(3),
+        Num::new(4),
+        Num::new(5),
+    ];
+    let iter = ExternalSorter::new(2, None).sort(unsorted.clone().into_iter());
+    for (idx, i) in iter.enumerate() {
+        assert_eq!(i.the_num, sorted[idx].the_num);
+    }
+    let iter2 = ExternalSorter::new(2, None).sort(unsorted.into_iter());
+    for (idx, i) in iter2.enumerate() {
+        assert_eq!(i.the_num, sorted[idx].the_num);
+    }
+}
+
+#[test]
+fn large() {
+    let mut unsorted = Vec::new();
+    for _ in 0..10_000 {
+        unsorted.push(Num::new(rand::random()));
+    }
+    let iter = ExternalSorter::new(100, None).sort(unsorted.into_iter());
+    let mut last = 0;
+    for i in iter {
+        assert!(i.the_num >= last);
+        last = i.the_num;
+    }
+}
+
