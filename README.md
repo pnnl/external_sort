@@ -1,6 +1,8 @@
 external_sort
 =============
 
+[![](http://meritbadge.herokuapp.com/external_sort)](https://crates.io/crates/external_sort)
+
 Provides the ability to perform external sorts on structs, which allows for rapid sorting of extremely large data streams.
 
 Usage
