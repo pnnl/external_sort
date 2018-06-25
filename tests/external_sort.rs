@@ -3,6 +3,9 @@ extern crate external_sort;
 extern crate serde_derive;
 extern crate rand;
 
+use std::env;
+use std::fs;
+
 use external_sort::{ExternalSorter, ExternallySortable};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -163,4 +166,24 @@ fn large() {
         assert!(n >= last);
         last = n;
     }
+}
+
+#[test]
+fn handle_fail() {
+    let mut unsorted = Vec::new();
+    for _ in 0..10_000 {
+        unsorted.push(Num::new(rand::random()));
+    }
+    let r = env::temp_dir().join("external_sort_test");
+    fs::create_dir_all(r.clone()).unwrap();
+
+    let iter = ExternalSorter::new(100, Some(r.clone())).sort(unsorted.into_iter()).unwrap();
+    fs::remove_dir_all(r.clone()).unwrap();
+    let mut fail = false;
+    for i in iter {
+        if i.is_err() {
+            fail = true;
+        }
+    }   
+    assert!(fail);
 }

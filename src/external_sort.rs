@@ -142,9 +142,10 @@ where
 /// }
 ///
 /// fn main() {
-/// let unsorted = vec![Num::new(5), Num::new(2), Num::new(1), Num::new(3),
-/// Num::new(4)]; let sorted = vec![Num::new(1), Num::new(2), Num::new(3),
-/// Num::new(4), Num::new(5)];
+///     let unsorted = vec![Num::new(5), Num::new(2), Num::new(1), Num::new(3),
+///         Num::new(4)]; 
+///     let sorted = vec![Num::new(1), Num::new(2), Num::new(3), Num::new(4), 
+///         Num::new(5)];
 ///
 ///     let external_sorter = ExternalSorter::new(16, None);
 ///     let iter = external_sorter.sort(unsorted.into_iter()).unwrap();
