@@ -38,9 +38,11 @@ fn sort() {
         Num::new(4),
         Num::new(5),
     ];
-    let iter = ExternalSorter::new(2, None).sort(unsorted.into_iter());
+    let iter = ExternalSorter::new(2, None)
+        .sort(unsorted.into_iter())
+        .unwrap();
     for (idx, i) in iter.enumerate() {
-        assert_eq!(i.the_num, sorted[idx].the_num);
+        assert_eq!(i.unwrap().the_num, sorted[idx].the_num);
     }
 }
 
@@ -60,9 +62,11 @@ fn reverse() {
         Num::new(2),
         Num::new(1),
     ];
-    let iter = ExternalSorter::new(16, None).sort_by(unsorted.into_iter(), |a, b| b.cmp(a));
+    let iter = ExternalSorter::new(16, None)
+        .sort_by(unsorted.into_iter(), |a, b| b.cmp(a))
+        .unwrap();
     for (idx, i) in iter.enumerate() {
-        assert_eq!(i.the_num, sorted[idx].the_num);
+        assert_eq!(i.unwrap().the_num, sorted[idx].the_num);
     }
 }
 
@@ -82,9 +86,11 @@ fn zero_buff() {
         Num::new(4),
         Num::new(5),
     ];
-    let iter = ExternalSorter::new(0, None).sort(unsorted.into_iter());
+    let iter = ExternalSorter::new(0, None)
+        .sort(unsorted.into_iter())
+        .unwrap();
     for (idx, i) in iter.enumerate() {
-        assert_eq!(i.the_num, sorted[idx].the_num);
+        assert_eq!(i.unwrap().the_num, sorted[idx].the_num);
     }
 }
 
@@ -104,9 +110,11 @@ fn large_buff() {
         Num::new(4),
         Num::new(5),
     ];
-    let iter = ExternalSorter::new(999999999, None).sort(unsorted.into_iter());
+    let iter = ExternalSorter::new(999999999, None)
+        .sort(unsorted.into_iter())
+        .unwrap();
     for (idx, i) in iter.enumerate() {
-        assert_eq!(i.the_num, sorted[idx].the_num);
+        assert_eq!(i.unwrap().the_num, sorted[idx].the_num);
     }
 }
 
@@ -126,13 +134,17 @@ fn reuse() {
         Num::new(4),
         Num::new(5),
     ];
-    let iter = ExternalSorter::new(2, None).sort(unsorted.clone().into_iter());
+    let iter = ExternalSorter::new(2, None)
+        .sort(unsorted.clone().into_iter())
+        .unwrap();
     for (idx, i) in iter.enumerate() {
-        assert_eq!(i.the_num, sorted[idx].the_num);
+        assert_eq!(i.unwrap().the_num, sorted[idx].the_num);
     }
-    let iter2 = ExternalSorter::new(2, None).sort(unsorted.into_iter());
+    let iter2 = ExternalSorter::new(2, None)
+        .sort(unsorted.into_iter())
+        .unwrap();
     for (idx, i) in iter2.enumerate() {
-        assert_eq!(i.the_num, sorted[idx].the_num);
+        assert_eq!(i.unwrap().the_num, sorted[idx].the_num);
     }
 }
 
@@ -142,11 +154,13 @@ fn large() {
     for _ in 0..10_000 {
         unsorted.push(Num::new(rand::random()));
     }
-    let iter = ExternalSorter::new(100, None).sort(unsorted.into_iter());
+    let iter = ExternalSorter::new(100, None)
+        .sort(unsorted.into_iter())
+        .unwrap();
     let mut last = 0;
     for i in iter {
-        assert!(i.the_num >= last);
-        last = i.the_num;
+        let n = i.unwrap().the_num;
+        assert!(n >= last);
+        last = n;
     }
 }
-

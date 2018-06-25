@@ -1,14 +1,15 @@
 use std::clone::Clone;
 use std::cmp::Ordering::{self, Less};
 use std::collections::VecDeque;
+use std::error::Error;
 use std::fs::{File, OpenOptions};
 use std::io::SeekFrom::Start;
 use std::io::{BufRead, BufReader, Seek, Write};
 use std::marker::PhantomData;
 use std::path::PathBuf;
 
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 use serde_json;
 use tempdir::TempDir;
 
@@ -32,29 +33,52 @@ pub struct ExtSortedIterator<T> {
     chunk_offsets: Vec<u64>,
     max_per_chunk: u64,
     chunks: u64,
-    tmp_dir_str: String,
-    // Need to hang on to this, or the directory will disappear
-    #[allow(dead_code)]
     tmp_dir: TempDir,
     sort_by_fn: Box<FnMut(&T, &T) -> Ordering>,
+    failed: bool,
 }
 
 impl<T> Iterator for ExtSortedIterator<T>
 where
     T: ExternallySortable,
 {
-    type Item = T;
+    type Item = Result<T, Box<Error>>;
 
+    ///
+    /// # Errors
+    ///
+    /// This method can fail due to issues reading intermediate sorted chunks
+    /// from disk, or due to serde deserialization issues
     fn next(&mut self) -> Option<Self::Item> {
+        if self.failed {
+            return None;
+        }
         // fill up any empty buffers
         let mut empty = true;
         for chunk_num in 0..self.chunks {
             if self.buffers[chunk_num as usize].is_empty() {
-                let mut f = File::open(format!("{0}/{1}", self.tmp_dir_str, chunk_num)).unwrap();
-                f.seek(Start(self.chunk_offsets[chunk_num as usize]))
-                    .unwrap();
+                let mut f = match File::open(self.tmp_dir.path().join(chunk_num.to_string())) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        self.failed = true;
+                        return Some(Err(Box::new(e)));
+                    }
+                };
+                match f.seek(Start(self.chunk_offsets[chunk_num as usize])) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        self.failed = true;
+                        return Some(Err(Box::new(e)));
+                    }
+                }
                 let bytes_read =
-                    fill_buff(&mut self.buffers[chunk_num as usize], f, self.max_per_chunk);
+                    match fill_buff(&mut self.buffers[chunk_num as usize], f, self.max_per_chunk) {
+                        Ok(bytes_read) => bytes_read,
+                        Err(e) => {
+                            self.failed = true;
+                            return Some(Err(e));
+                        }
+                    };
                 self.chunk_offsets[chunk_num as usize] += bytes_read;
                 if !self.buffers[chunk_num as usize].is_empty() {
                     empty = false;
@@ -68,6 +92,7 @@ where
         }
 
         // find the next record to write
+        // check is_empty() before unwrap()ing
         let mut idx = 0;
         for chunk_num in 0..self.chunks as usize {
             if !self.buffers[chunk_num].is_empty() {
@@ -82,20 +107,21 @@ where
             }
         }
 
+        // unwrap due to checks above
         let r = self.buffers[idx].pop_front().unwrap();
-        Some(r)
+        Some(Ok(r))
     }
 }
 
 /// Perform an external sort on an unsorted stream of incoming data
-/// 
-/// # Examples 
-/// 
+///
+/// # Examples
+///
 /// ```
 /// extern crate external_sort;
 /// #[macro_use]
 /// extern crate serde_derive;
-/// 
+///
 /// use external_sort::{ExternallySortable, ExternalSorter};
 ///
 /// #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -116,13 +142,14 @@ where
 /// }
 ///
 /// fn main() {
-///     let unsorted = vec![Num::new(5), Num::new(2), Num::new(1), Num::new(3), Num::new(4)];
-///     let sorted = vec![Num::new(1), Num::new(2), Num::new(3), Num::new(4), Num::new(5)];
+/// let unsorted = vec![Num::new(5), Num::new(2), Num::new(1), Num::new(3),
+/// Num::new(4)]; let sorted = vec![Num::new(1), Num::new(2), Num::new(3),
+/// Num::new(4), Num::new(5)];
 ///
 ///     let external_sorter = ExternalSorter::new(16, None);
-///     let iter = external_sorter.sort(unsorted.into_iter());
+///     let iter = external_sorter.sort(unsorted.into_iter()).unwrap();
 ///     for (idx, i) in iter.enumerate() {
-///         assert_eq!(i.the_num, sorted[idx].the_num);
+///         assert_eq!(i.unwrap().the_num, sorted[idx].the_num);
 ///     }
 /// }
 /// ```
@@ -151,7 +178,12 @@ where
 
     /// Sort the `T`s provided by `unsorted` and return a sorted (ascending)
     /// iterator
-    pub fn sort<I>(&self, unsorted: I) -> ExtSortedIterator<T>
+    ///
+    /// # Errors
+    ///
+    /// This method can fail due to issues writing intermediate sorted chunks
+    /// to disk, or due to serde serialization issues
+    pub fn sort<I>(&self, unsorted: I) -> Result<ExtSortedIterator<T>, Box<Error>>
     where
         I: Iterator<Item = T>,
     {
@@ -160,14 +192,19 @@ where
 
     /// Sort (based on `compare`) the `T`s provided by `unsorted` and return an
     /// iterator
-    pub fn sort_by<I, F>(&self, unsorted: I, compare: F) -> ExtSortedIterator<T>
+    ///
+    /// # Errors
+    ///
+    /// This method can fail due to issues writing intermediate sorted chunks
+    /// to disk, or due to serde serialization issues
+    pub fn sort_by<I, F>(&self, unsorted: I, compare: F) -> Result<ExtSortedIterator<T>, Box<Error>>
     where
         I: Iterator<Item = T>,
         F: 'static + FnMut(&T, &T) -> Ordering,
     {
         let tmp_dir = match self.tmp_dir {
-            Some(ref p) => TempDir::new_in(p, "sort_fasta").unwrap(),
-            None => TempDir::new("sort_fasta").unwrap(),
+            Some(ref p) => TempDir::new_in(p, "sort_fasta")?,
+            None => TempDir::new("sort_fasta")?,
         };
         // creating the thing we need to return first due to the face that we need to
         // borrow tmp_dir and move it out
@@ -176,9 +213,9 @@ where
             chunk_offsets: Vec::new(),
             max_per_chunk: 0,
             chunks: 0,
-            tmp_dir_str: String::from(tmp_dir.path().to_str().unwrap()),
             tmp_dir,
             sort_by_fn: Box::new(compare),
+            failed: false,
         };
 
         {
@@ -192,9 +229,9 @@ where
                 if total_read >= self.buffer_bytes {
                     chunk.sort_by(|a, b| (iter.sort_by_fn)(a, b));
                     self.write_chunk(
-                        &format!("{0}/{1}", iter.tmp_dir_str, iter.chunks),
+                        &iter.tmp_dir.path().join(iter.chunks.to_string()),
                         &mut chunk,
-                    );
+                    )?;
                     chunk.clear();
                     total_read = 0;
                     iter.chunks += 1;
@@ -204,9 +241,9 @@ where
             if chunk.len() > 0 {
                 chunk.sort_by(|a, b| (iter.sort_by_fn)(a, b));
                 self.write_chunk(
-                    &format!("{0}/{1}", iter.tmp_dir_str, iter.chunks),
+                    &iter.tmp_dir.path().join(iter.chunks.to_string()),
                     &mut chunk,
-                );
+                )?;
                 iter.chunks += 1;
             }
 
@@ -217,40 +254,38 @@ where
             for chunk_num in 0..iter.chunks {
                 let offset = fill_buff(
                     &mut iter.buffers[chunk_num as usize],
-                    File::open(format!("{0}/{1}", iter.tmp_dir_str, chunk_num)).unwrap(),
+                    File::open(iter.tmp_dir.path().join(chunk_num.to_string()))?,
                     iter.max_per_chunk,
-                );
+                )?;
                 iter.chunk_offsets[chunk_num as usize] = offset;
             }
         }
 
-        iter
+        Ok(iter)
     }
 
-    fn write_chunk(&self, file: &str, chunk: &mut Vec<T>) {
-        let mut new_file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(file)
-            .unwrap();
+    fn write_chunk(&self, file: &PathBuf, chunk: &mut Vec<T>) -> Result<(), Box<Error>> {
+        let mut new_file = OpenOptions::new().create(true).append(true).open(file)?;
         for s in chunk {
-            let mut serialized = serde_json::to_string(&s).unwrap();
+            let mut serialized = serde_json::to_string(&s)?;
             serialized.push_str("\n");
-            new_file.write_all(serialized.as_bytes()).unwrap();
+            new_file.write_all(serialized.as_bytes())?;
         }
+
+        Ok(())
     }
 }
 
-fn fill_buff<T>(vec: &mut VecDeque<T>, file: File, max_bytes: u64) -> u64
+fn fill_buff<T>(vec: &mut VecDeque<T>, file: File, max_bytes: u64) -> Result<u64, Box<Error>>
 where
     T: ExternallySortable,
 {
     let mut total_read = 0;
     let mut bytes_read = 0;
     for line in BufReader::new(file).lines() {
-        let line_s = line.unwrap();
+        let line_s = line?;
         bytes_read += line_s.len() + 1;
-        let deserialized: T = serde_json::from_str(&line_s).unwrap();
+        let deserialized: T = serde_json::from_str(&line_s)?;
         total_read += deserialized.get_size();
         vec.push_back(deserialized);
         if total_read > max_bytes {
@@ -258,5 +293,5 @@ where
         }
     }
 
-    bytes_read as u64
+    Ok(bytes_read as u64)
 }
