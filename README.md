@@ -12,7 +12,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-external_sort = "^0.0.3"
+external_sort = "^0.1.1"
 ```
 
 and this to your crate root:
