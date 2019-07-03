@@ -1,7 +1,4 @@
-extern crate external_sort;
-#[macro_use]
-extern crate serde_derive;
-
+use serde::{Serialize, Deserialize};
 use external_sort::{ExternalSorter, ExternallySortable};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord)]

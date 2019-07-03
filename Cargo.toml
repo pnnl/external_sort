@@ -1,6 +1,6 @@
 [package]
 name = "external_sort"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Phillips, Aaron R <aaron.phillips@pnnl.gov>"]
 license = "MIT"
 repository = "https://github.com/pnnl/external_sort"
@@ -10,9 +10,10 @@ readme = "README.md"
 description = """
 Provides the ability to perform external sorts on structs, which allows for rapid sorting of large data streams.
 """
+edition="2018"
 
 [dependencies]
-serde = "^1.0"
+serde = { version = "^1.0", features = ["derive"] }
 serde_derive = "^1.0"
 serde_json = "^1.0"
 tempdir = "^0.3.5"

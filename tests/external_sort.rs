@@ -1,7 +1,5 @@
-extern crate external_sort;
-#[macro_use]
-extern crate serde_derive;
-extern crate rand;
+use rand;
+use serde::{Deserialize, Serialize};
 
 use std::env;
 use std::fs;
@@ -177,13 +175,15 @@ fn handle_fail() {
     let r = env::temp_dir().join("external_sort_test");
     fs::create_dir_all(r.clone()).unwrap();
 
-    let iter = ExternalSorter::new(100, Some(r.clone())).sort(unsorted.into_iter()).unwrap();
+    let iter = ExternalSorter::new(100, Some(r.clone()))
+        .sort(unsorted.into_iter())
+        .unwrap();
     fs::remove_dir_all(r.clone()).unwrap();
     let mut fail = false;
     for i in iter {
         if i.is_err() {
             fail = true;
         }
-    }   
+    }
     assert!(fail);
 }

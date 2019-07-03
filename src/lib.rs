@@ -2,10 +2,6 @@
 
 //! Provides the ability to perform external sorts on structs
 
-extern crate serde;
-extern crate serde_json;
-extern crate tempdir;
-
 mod external_sort;
 
-pub use external_sort::{ExtSortedIterator, ExternalSorter, ExternallySortable};
+pub use crate::external_sort::{ExtSortedIterator, ExternalSorter, ExternallySortable};

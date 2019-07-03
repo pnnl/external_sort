@@ -34,7 +34,7 @@ pub struct ExtSortedIterator<T> {
     max_per_chunk: u64,
     chunks: u64,
     tmp_dir: TempDir,
-    sort_by_fn: Box<FnMut(&T, &T) -> Ordering>,
+    sort_by_fn: Box<dyn FnMut(&T, &T) -> Ordering>,
     failed: bool,
 }
 
@@ -42,7 +42,7 @@ impl<T> Iterator for ExtSortedIterator<T>
 where
     T: ExternallySortable,
 {
-    type Item = Result<T, Box<Error>>;
+    type Item = Result<T, Box<dyn Error>>;
 
     ///
     /// # Errors
@@ -184,7 +184,7 @@ where
     ///
     /// This method can fail due to issues writing intermediate sorted chunks
     /// to disk, or due to serde serialization issues
-    pub fn sort<I>(&self, unsorted: I) -> Result<ExtSortedIterator<T>, Box<Error>>
+    pub fn sort<I>(&self, unsorted: I) -> Result<ExtSortedIterator<T>, Box<dyn Error>>
     where
         I: Iterator<Item = T>,
     {
@@ -198,7 +198,7 @@ where
     ///
     /// This method can fail due to issues writing intermediate sorted chunks
     /// to disk, or due to serde serialization issues
-    pub fn sort_by<I, F>(&self, unsorted: I, compare: F) -> Result<ExtSortedIterator<T>, Box<Error>>
+    pub fn sort_by<I, F>(&self, unsorted: I, compare: F) -> Result<ExtSortedIterator<T>, Box<dyn Error>>
     where
         I: Iterator<Item = T>,
         F: 'static + FnMut(&T, &T) -> Ordering,
@@ -265,7 +265,7 @@ where
         Ok(iter)
     }
 
-    fn write_chunk(&self, file: &PathBuf, chunk: &mut Vec<T>) -> Result<(), Box<Error>> {
+    fn write_chunk(&self, file: &PathBuf, chunk: &mut Vec<T>) -> Result<(), Box<dyn Error>> {
         let mut new_file = OpenOptions::new().create(true).append(true).open(file)?;
         for s in chunk {
             let mut serialized = serde_json::to_string(&s)?;
@@ -277,7 +277,7 @@ where
     }
 }
 
-fn fill_buff<T>(vec: &mut VecDeque<T>, file: File, max_bytes: u64) -> Result<u64, Box<Error>>
+fn fill_buff<T>(vec: &mut VecDeque<T>, file: File, max_bytes: u64) -> Result<u64, Box<dyn Error>>
 where
     T: ExternallySortable,
 {
