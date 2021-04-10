@@ -283,10 +283,17 @@ where
 {
     let mut total_read = 0;
     let mut bytes_read = 0;
-    for line in BufReader::new(file).lines() {
-        let line_s = line?;
-        bytes_read += line_s.len() + 1;
-        let deserialized: T = serde_json::from_str(&line_s)?;
+    let mut line = String::new();
+    let mut reader = BufReader::new(file);
+    loop {
+        line.clear();
+        let n = reader.read_line(&mut line)?;
+        if n == 0 {
+            break;
+        }
+
+        bytes_read += line.len();
+        let deserialized: T = serde_json::from_str(&line)?;
         total_read += deserialized.get_size();
         vec.push_back(deserialized);
         if total_read > max_bytes {
