@@ -4,13 +4,12 @@ use std::collections::VecDeque;
 use std::error::Error;
 use std::fs::{File, OpenOptions};
 use std::io::SeekFrom::Start;
-use std::io::{BufRead, BufReader, Seek, Write};
+use std::io::{BufRead, BufReader, Seek, Write, BufWriter};
 use std::marker::PhantomData;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use serde_json;
 use tempdir::TempDir;
 
 /// Trait for types that can be used by
@@ -95,15 +94,14 @@ where
         // check is_empty() before unwrap()ing
         let mut idx = 0;
         for chunk_num in 0..self.chunks as usize {
-            if !self.buffers[chunk_num].is_empty() {
-                if self.buffers[idx].is_empty()
+            if !self.buffers[chunk_num].is_empty() &&
+                (self.buffers[idx].is_empty()
                     || (self.sort_by_fn)(
                         self.buffers[chunk_num].front().unwrap(),
                         self.buffers[idx].front().unwrap(),
-                    ) == Less
-                {
-                    idx = chunk_num;
-                }
+                    ) == Less)
+            {
+                idx = chunk_num;
             }
         }
 
@@ -239,7 +237,7 @@ where
                 }
             }
             // write the last chunk
-            if chunk.len() > 0 {
+            if !chunk.is_empty() {
                 chunk.sort_by(|a, b| (iter.sort_by_fn)(a, b));
                 self.write_chunk(
                     &iter.tmp_dir.path().join(iter.chunks.to_string()),
@@ -251,7 +249,7 @@ where
             // initialize buffers for each chunk
             iter.max_per_chunk = self.buffer_bytes / iter.chunks;
             iter.buffers = vec![VecDeque::new(); iter.chunks as usize];
-            iter.chunk_offsets = vec![0 as u64; iter.chunks as usize];
+            iter.chunk_offsets = vec![0u64; iter.chunks as usize];
             for chunk_num in 0..iter.chunks {
                 let offset = fill_buff(
                     &mut iter.buffers[chunk_num as usize],
@@ -265,11 +263,12 @@ where
         Ok(iter)
     }
 
-    fn write_chunk(&self, file: &PathBuf, chunk: &mut Vec<T>) -> Result<(), Box<dyn Error>> {
-        let mut new_file = OpenOptions::new().create(true).append(true).open(file)?;
+    fn write_chunk(&self, file: &Path, chunk: &mut Vec<T>) -> Result<(), Box<dyn Error>> {
+        let new_file = OpenOptions::new().create(true).append(true).open(file)?;
+        let mut new_file = BufWriter::new(new_file);
         for s in chunk {
             let mut serialized = serde_json::to_string(&s)?;
-            serialized.push_str("\n");
+            serialized.push('\n');
             new_file.write_all(serialized.as_bytes())?;
         }
 
@@ -283,10 +282,17 @@ where
 {
     let mut total_read = 0;
     let mut bytes_read = 0;
-    for line in BufReader::new(file).lines() {
-        let line_s = line?;
-        bytes_read += line_s.len() + 1;
-        let deserialized: T = serde_json::from_str(&line_s)?;
+    let mut line = String::new();
+    let mut reader = BufReader::new(file);
+    loop {
+        line.clear();
+        let n = reader.read_line(&mut line)?;
+        if n == 0 {
+            break;
+        }
+
+        bytes_read += line.len();
+        let deserialized: T = serde_json::from_str(&line)?;
         total_read += deserialized.get_size();
         vec.push_back(deserialized);
         if total_read > max_bytes {
