@@ -249,7 +249,7 @@ where
             }
 
             // initialize buffers for each chunk
-            iter.max_per_chunk = self.buffer_bytes / iter.chunks;
+            iter.max_per_chunk = self.buffer_bytes.checked_div(iter.chunks).unwrap_or(self.buffer_bytes);
             iter.buffers = vec![VecDeque::new(); iter.chunks as usize];
             iter.chunk_offsets = vec![0 as u64; iter.chunks as usize];
             for chunk_num in 0..iter.chunks {
