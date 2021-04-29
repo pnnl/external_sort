@@ -286,10 +286,7 @@ where
     for line in BufReader::new(file).lines() {
         let line_s = line?;
         bytes_read += line_s.len() + 1;
-        let deserialized: Line = match serde_json::from_str(&line_s) {
-            Ok(x) => x,
-            Err(err) => panic!("JSON read error: {}", err),
-        };
+        let deserialized: T = serde_json::from_str(&line_s).expect("JSON read error: {}");
         total_read += deserialized.get_size();
         vec.push_back(deserialized);
         if total_read > max_bytes {
