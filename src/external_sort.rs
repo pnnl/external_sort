@@ -249,7 +249,7 @@ where
             }
 
             // initialize buffers for each chunk
-            iter.max_per_chunk = self.buffer_bytes / iter.chunks;
+            iter.max_per_chunk = self.buffer_bytes.checked_div(iter.chunks).unwrap_or(self.buffer_bytes);
             iter.buffers = vec![VecDeque::new(); iter.chunks as usize];
             iter.chunk_offsets = vec![0 as u64; iter.chunks as usize];
             for chunk_num in 0..iter.chunks {
@@ -268,7 +268,7 @@ where
     fn write_chunk(&self, file: &PathBuf, chunk: &mut Vec<T>) -> Result<(), Box<dyn Error>> {
         let mut new_file = OpenOptions::new().create(true).append(true).open(file)?;
         for s in chunk {
-            let mut serialized = serde_json::to_string(&s)?;
+            let mut serialized = serde_json::to_string(&s).expect("JSON write error: ");
             serialized.push_str("\n");
             new_file.write_all(serialized.as_bytes())?;
         }
@@ -286,7 +286,7 @@ where
     for line in BufReader::new(file).lines() {
         let line_s = line?;
         bytes_read += line_s.len() + 1;
-        let deserialized: T = serde_json::from_str(&line_s)?;
+        let deserialized: T = serde_json::from_str(&line_s).expect("JSON read error: ");
         total_read += deserialized.get_size();
         vec.push_back(deserialized);
         if total_read > max_bytes {
